@@ -1,0 +1,167 @@
+<div class="sidebar">
+    <h3 style="color: white; margin-left: 10px; margin-top: 0;">聊天日期</h3>
+    <!-- 點擊只切換顯示，不清除內容 -->
+    <button class="date-btn active" onclick="switchTab('day1', this)">2026-06-01</button>
+    <button class="date-btn" onclick="switchTab('day2', this)">2026-06-02</button>
+    <button class="date-btn" onclick="switchTab('day3', this)">2026-06-03</button>
+    <button class="date-btn" onclick="switchTab('day4', this)">2026-06-04</button>
+    <button class="date-btn" onclick="switchTab('day5', this)">2026-06-05</button>
+</div>
+
+<div class="main-chat">
+    <div class="chat-header">
+        <h2 id="current-date-title" style="margin: 0; color: white; font-size: 20px;">2026-06-01</h2>
+        <div class="btn-group">
+            <button class="action-btn" onclick="toggleSort()">1. 切換時間順序</button>
+            <button class="action-btn reset-btn" onclick="resetCurrentChat()">2. ↩ 重設播放</button>
+            <button class="action-btn next-btn" onclick="showNextMessage()">3. 下一條訊息 ➔</button>
+        </div>
+    </div>
+    
+    <!-- 5 個獨立的聊天視窗，切換時只會隱藏，裡面的紀錄會永久保留 -->
+    <div class="chat-messages" id="box-day1"></div>
+    <div class="chat-messages" id="box-day2" style="display: none;"></div>
+    <div class="chat-messages" id="box-day3" style="display: none;"></div>
+    <div class="chat-messages" id="box-day4" style="display: none;"></div>
+    <div class="chat-messages" id="box-day5" style="display: none;"></div>
+
+    <div class="hint-bar">
+        💡 提示：切換日期時，原本播出的訊息會永久保留！只有點擊「重設播放」才會清空該天紀錄。
+    </div>
+</div>
+
+<style>
+    body { margin: 0; font-family: sans-serif; background-color: #36393f; color: #dcddde; display: flex; height: 95vh; }
+    .sidebar { width: 160px; background-color: #2f3136; padding: 20px 10px; display: flex; flex-direction: column; gap: 10px; }
+    .date-btn { background-color: #40444b; color: white; border: none; padding: 10px; border-radius: 5px; cursor: pointer; text-align: left; }
+    .date-btn:hover, .date-btn.active { background-color: #5865f2; }
+    .main-chat { flex: 1; display: flex; flex-direction: column; position: relative; background-color: #36393f; }
+    .chat-header { background-color: #36393f; padding: 15px; border-bottom: 1px solid #202225; display: flex; justify-content: space-between; align-items: center; }
+    .btn-group { display: flex; gap: 8px; }
+    .action-btn { color: white; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; font-weight: bold; }
+    .action-btn:hover { opacity: 0.9; }
+    .action-btn:nth-child(1) { background-color: #4f545c; }
+    .reset-btn { background-color: #da373c; } 
+    .next-btn { background-color: #248046; } 
+    .chat-messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; padding-bottom: 60px; }
+    .msg-item { display: flex; gap: 15px; animation: fadeIn 0.2s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    .avatar { width: 40px; height: 40px; border-radius: 50%; background-color: #4f545c; object-fit: cover; }
+    .msg-content { display: flex; flex-direction: column; gap: 2px; }
+    .msg-info { display: flex; align-items: baseline; gap: 8px; }
+    .username { color: #ffffff; font-weight: bold; }
+    .timestamp { color: #72767d; font-size: 12px; }
+    .text-text { color: #dcddde; font-size: 15px; white-space: pre-wrap; }
+    .img-box img { max-width: 250px; max-height: 180px; border-radius: 8px; margin-top: 5px; }
+    .hint-bar { position: absolute; bottom: 15px; right: 15px; background: rgba(0,0,0,0.7); padding: 6px 12px; border-radius: 20px; font-size: 12px; color: #b9bbbe; pointer-events: none; }
+</style>
+
+<script>
+    // 原始聊天資料
+    const chatData = {
+        day1: [
+            { time: "10:00", name: "小明", avatar: "https://picsum.photos", type: "text", content: "這是第一天的訊息。" },
+            { time: "10:05", name: "小華", avatar: "https://picsum.photos", type: "image", content: "https://picsum.photos" }
+        ],
+        day2: [
+            { time: "14:20", name: "小美", avatar: "https://picsum.photos", type: "text", content: "這是第二天的訊息，有人在嗎？" }
+        ],
+        day3: [
+            { time: "09:00", name: "小華", avatar: "https://picsum.photos", type: "text", content: "第三天準時上工！" }
+        ],
+        day4: [
+            { time: "18:30", name: "小美", avatar: "https://picsum.photos", type: "image", content: "https://picsum.photos" }
+        ],
+        day5: [
+            { time: "23:59", name: "小明", avatar: "https://picsum.photos", type: "text", content: "這是第五天的對話結尾。" }
+        ]
+    };
+
+    // 狀態追蹤：每一天都有自己獨立的「排序後資料」與「目前播到第幾條」
+    let currentDay = 'day1';
+    let isAscending = true; 
+    
+    let statusState = {
+        day1: { index: 0, list: [] },
+        day2: { index: 0, list: [] },
+        day3: { index: 0, list: [] },
+        day4: { index: 0, list: [] },
+        day5: { index: 0, list: [] }
+    };
+
+    // 初始化所有日期的排序資料
+    function initAllData() {
+        Object.keys(chatData).forEach(day => {
+            statusState[day].list = [...chatData[day]];
+            statusState[day].list.sort((a, b) => isAscending ? a.time.localeCompare(b.time) : b.time.localeCompare(a.time));
+        });
+    }
+
+    // 點擊「下一條訊息」：只影響目前顯示的那個視窗
+    function showNextMessage() {
+        const state = statusState[currentDay];
+        if (state.index >= state.list.length) {
+            alert('這天的聊天記錄已經播完囉！');
+            return;
+        }
+
+        const chatBox = document.getElementById(`box-${currentDay}`);
+        const msg = state.list[state.index];
+        let contentHTML = msg.type === 'text' 
+            ? `<span class="text-text">${msg.content}</span>`
+            : `<div class="img-box"><img src="${msg.content}"></div>`;
+
+        chatBox.innerHTML += `
+            <div class="msg-item">
+                <img class="avatar" src="${msg.avatar}">
+                <div class="msg-content">
+                    <div class="msg-info">
+                        <span class="username">${msg.name}</span>
+                        <span class="timestamp">${msg.time}</span>
+                    </div>
+                    ${contentHTML}
+                </div>
+            </div>
+        `;
+        chatBox.scrollTop = chatBox.scrollHeight; 
+        state.index++;
+    }
+
+    // 切換日期：純粹隱藏舊視窗、顯示新視窗，內容完全保留！
+    function switchTab(day, buttonElement) {
+        // 隱藏目前視窗
+        document.getElementById(`box-${currentDay}`).style.display = 'none';
+        
+        // 切換目前日期
+        currentDay = day;
+        
+        // 顯示新視窗
+        document.getElementById(`box-${currentDay}`).style.display = 'flex';
+        
+        // 更新標題與按鈕顏色
+        document.getElementById('current-date-title').innerText = buttonElement.innerText;
+        document.querySelectorAll('.date-btn').forEach(btn => btn.classList.remove('active'));
+        buttonElement.classList.add('active');
+    }
+
+    // 單獨重設「當前這一天」的播放紀錄（清空畫面並重來）
+    function resetCurrentChat() {
+        statusState[currentDay].index = 0;
+        document.getElementById(`box-${currentDay}`).innerHTML = '';
+    }
+
+    // 一鍵變更時間順序（因為會打亂順序，所以需要全部清空重來）
+    function toggleSort() {
+        isAscending = !isAscending;
+        initAllData();
+        // 清空所有視窗
+        Object.keys(chatData).forEach(day => {
+            statusState[day].index = 0;
+            document.getElementById(`box-${day}`).innerHTML = '';
+        });
+        alert('已切換時間排序方式，所有日期已重設，請重新點擊播放。');
+    }
+
+    // 網頁首次載入
+    initAllData();
+</script>
